@@ -13,9 +13,13 @@ const RETRIES = 8;
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:156.0) Gecko/20100101 Firefox/156.0";
 
+// Retry-After is only followed for 429s; Cloudflare also sends it with 5xx errors
+// (e.g. Retry-After: 120 on a 521), where waiting it out doesn't help
+const MAX_RETRY_AFTER_SEC = 125;
+
 function computeBackoff(attempt: number, is429: boolean, retryAfterSec: number | null) {
-  if (retryAfterSec && retryAfterSec > 0) {
-    return retryAfterSec * 1000 + Math.floor(Math.random() * 500);
+  if (is429 && retryAfterSec && retryAfterSec > 0) {
+    return Math.min(retryAfterSec, MAX_RETRY_AFTER_SEC) * 1000 + Math.floor(Math.random() * 500);
   }
   const base = is429 ? 3000 : 1000;
   const exp = Math.min(base * 2 ** (attempt - 1), 20_000);
